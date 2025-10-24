@@ -23,24 +23,30 @@ use datafusion::logical_expr::{LogicalPlan, SubqueryAlias};
 use substrait::proto::{plan_rel, Plan, PlanRel, Rel, RelRoot};
 use substrait::version;
 
-/// Convert DataFusion LogicalPlan to Substrait Plan
 pub fn to_substrait_plan(
     plan: &LogicalPlan,
     state: &SessionState,
 ) -> datafusion::common::Result<Box<Plan>> {
+    let mut default_producer = DefaultSubstraitProducer::new(state);
+    to_substrait_plan_with_custom_producer(plan, &mut default_producer)
+}
+
+pub fn to_substrait_plan_with_custom_producer(
+    plan: &LogicalPlan,
+    producer: &mut impl SubstraitProducer,
+) -> datafusion::common::Result<Box<Plan>> {
     // Parse relation nodes
     // Generate PlanRel(s)
     // Note: Only 1 relation tree is currently supported
-
-    let mut producer: DefaultSubstraitProducer = DefaultSubstraitProducer::new(state);
+    
     let plan_rels = vec![PlanRel {
         rel_type: Some(plan_rel::RelType::Root(RelRoot {
             input: Some(*producer.handle_plan(plan)?),
-            names: to_substrait_named_struct(&mut producer, plan.schema())?.names,
+            names: to_substrait_named_struct(producer, plan.schema())?.names,
         })),
     }];
 
-    // Return parsed plan
+    // Return the assembled Substrait Plan
     let extensions = producer.get_extensions();
     Ok(Box::new(Plan {
         version: Some(version::version_with_producer("datafusion")),
