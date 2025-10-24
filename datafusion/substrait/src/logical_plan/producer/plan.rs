@@ -27,22 +27,22 @@ pub fn to_substrait_plan(
     plan: &LogicalPlan,
     state: &SessionState,
 ) -> datafusion::common::Result<Box<Plan>> {
-    let mut default_producer = DefaultSubstraitProducer::new(state);
-    to_substrait_plan_with_custom_producer(plan, &mut default_producer)
+    let default_producer = DefaultSubstraitProducer::new(state);
+    to_substrait_plan_with_custom_producer(plan, default_producer)
 }
 
 pub fn to_substrait_plan_with_custom_producer(
     plan: &LogicalPlan,
-    producer: &mut impl SubstraitProducer,
+    mut producer: impl SubstraitProducer,
 ) -> datafusion::common::Result<Box<Plan>> {
     // Parse relation nodes
     // Generate PlanRel(s)
     // Note: Only 1 relation tree is currently supported
-    
+
     let plan_rels = vec![PlanRel {
         rel_type: Some(plan_rel::RelType::Root(RelRoot {
             input: Some(*producer.handle_plan(plan)?),
-            names: to_substrait_named_struct(producer, plan.schema())?.names,
+            names: to_substrait_named_struct(&mut producer, plan.schema())?.names,
         })),
     }];
 
